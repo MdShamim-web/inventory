@@ -2,18 +2,25 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useApi } from "@/hooks/useApi";
+
+const initialForm = {
+  username: "",
+  email: "",
+  role: "ADMIN",
+  password: "",
+  confirmPassword: "",
+};
 
 export default function SignupPage() {
-  const [formData, setFormData] = useState({
-    username: "",
-    email: "",
-    role: "ADMIN",
-    password: "",
-    confirmPassword: "",
-  });
+  const [formData, setFormData] = useState(initialForm);
 
+  // Local message for success / password mismatch. API errors come from the hook.
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+
+  const { execute, loading, error } = useApi("/api/auth/register", {
+    method: "POST",
+  });
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -33,54 +40,19 @@ export default function SignupPage() {
       return;
     }
 
-    try {
-      setLoading(true);
-      setMessage("");
+    setMessage("");
 
-      const response = await fetch(
-        'https://api.freeapi.app/api/v1/users/register',
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            username: formData.username,
-            email: formData.email,
-            role: formData.role,
-            password: formData.password,
-          }),
-        }
-      );
+    // confirmPassword is only for the form, so don't send it to the API.
+    const { ok } = await execute({
+      username: formData.username,
+      email: formData.email,
+      role: formData.role,
+      password: formData.password,
+    });
 
-      const data = await response.json();
-
-      console.log("API Response:", data);
-
-      if (!response.ok) {
-        throw new Error(data.message || "Registration failed");
-      }
-
+    if (ok) {
       setMessage("Account created successfully!");
-
-      // Clear form
-      setFormData({
-        username: "",
-        email: "",
-        role: "User",
-        password: "",
-        confirmPassword: "",
-      });
-    } catch (error) {
-      console.error(error);
-
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Something went wrong!"
-      );
-    } finally {
-      setLoading(false);
+      setFormData(initialForm);
     }
   };
 
@@ -183,10 +155,10 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* Message */}
-            {message && (
+            {/* Message (local message first, otherwise API error) */}
+            {(message || error) && (
               <p className="rounded-lg bg-gray-100 p-3 text-center">
-                {message}
+                {message || error}
               </p>
             )}
 

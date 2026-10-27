@@ -2,15 +2,32 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useApi } from "@/hooks/useApi";
+
+// Where to go after login: the page the user tried to open
+// (proxy.ts adds it as ?redirect=...) or the dashboard by default.
+function getRedirectPath() {
+  const redirect = new URLSearchParams(window.location.search).get("redirect");
+  const url = new URL(redirect ?? "/dashboard", window.location.origin);
+
+  // Only allow pages on our own site (blocks ?redirect=https://evil.com).
+  return url.origin === window.location.origin
+    ? url.pathname + url.search
+    : "/dashboard";
+}
 
 export default function LoginPage() {
+  const router = useRouter();
+
   const [formData, setFormData] = useState({
     username: "",
     password: "",
   });
 
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { execute, loading, error } = useApi("/api/auth/login", {
+    method: "POST",
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -22,50 +39,10 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    try {
-      setLoading(true);
-      setMessage("");
+    const { ok } = await execute(formData);
 
-      const response = await fetch(
-        "/api/auth/login",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            username: formData.username,
-            password: formData.password,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      console.log(data);
-
-      // Check API error
-      if (!response.ok) {
-        throw new Error(data.message || "Login failed");
-      }
-
-      setMessage("Login successful!");
-
-      // Clear form
-      setFormData({
-        username: "",
-        password: "",
-      });
-    } catch (error) {
-      console.error(error);
-
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Something went wrong!"
-      );
-    } finally {
-      setLoading(false);
+    if (ok) {
+      router.push(getRedirectPath());
     }
   };
 
@@ -145,16 +122,16 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Message */}
-          {message && (
-            <p className="mt-4 text-center text-sm">
-              {message}
+          {/* Error Message */}
+          {error && (
+            <p className="mt-4 text-center text-sm text-red-600">
+              {error}
             </p>
           )}
 
           {/* Signup Link */}
           <p className="mt-6 text-center text-gray-600">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
 
             <Link
               href="/signup"

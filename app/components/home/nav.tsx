@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
-import { Bell, Search, ChevronDown } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Bell, Search, ChevronDown, LogOut } from "lucide-react";
+import { useApi } from "@/hooks/useApi";
+
+// Only the fields we use from FreeAPI's /ecommerce/profile response.
+type Profile = {
+  firstName: string;
+  lastName: string;
+};
 
 export default function Navbar() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const notifications = [
@@ -29,26 +37,17 @@ export default function Navbar() {
     },
   ];
 
-  const [profile, setProfile] = useState(null)
+  // Loads the profile on mount through our server proxy (token is added there).
+  const { data: profile } = useApi<Profile>("/api/backend/ecommerce/profile", {
+    auto: true,
+  });
 
-  const getProfile = async () => {
-    try {
-      const profile = await (await fetch('https://api.freeapi.app/api/v1/ecommerce/profile', {
-        headers: {
-          Authorization: localStorage.getItem('accessToken') as string
-        }
-      })).json()
+  const { execute: logout } = useApi("/api/auth/logout", { method: "POST" });
 
-      setProfile(profile.data)
-    }
-    catch {
-
-    }
-  }
-
-  useEffect(() => {
-    getProfile()
-  }, [])
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   return (
     <header className=" bg-white shadow-sm">
@@ -130,6 +129,15 @@ export default function Navbar() {
                 </div>
 
                 <ChevronDown size={18} className="text-gray-500" />
+            </button>
+
+            {/* Logout */}
+            <button
+                onClick={handleLogout}
+                title="Logout"
+                className="rounded-full p-2 text-gray-600 hover:bg-gray-100"
+            >
+                <LogOut size={20} />
             </button>
             </div>
 
